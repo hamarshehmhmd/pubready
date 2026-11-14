@@ -33,7 +33,7 @@ const DIAGNOSES = [
         "the package doesn't exist on npm yet (first publish must be manual)",
         "trusted publisher created after 3 Sep 2026 without \"Allow npm publish\" (only `npm stage publish` allowed)",
       );
-      return { title: `npm says 404 on publish (${decodeURIComponent(m[1].split("/").pop())}): it didn't authenticate with OIDC`, causes, fixes: ["run `npx github:hamarshehmhmd/pubready --online` in the repo to see which of these applies"] };
+      return { title: `npm says 404 on publish (${decodeURIComponent(m[1].split("/").pop())}): it didn't authenticate with OIDC`, causes, fixes: ["run `npx github:hamarshehmhmd/pubready` in the repo to see which of these applies"] };
     },
   },
   {

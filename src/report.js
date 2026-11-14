@@ -6,7 +6,7 @@ export function colors(enabled) {
   return { red: c("31"), yellow: c("33"), cyan: c("36"), green: c("32"), dim: c("2"), bold: c("1"), magenta: c("35") };
 }
 
-const ICON = { error: "✖", warn: "▲", note: "ℹ" };
+const ICON = { error: "✖", warn: "▲", note: "•" };
 
 function plural(n, w) {
   return `${n} ${w}${n === 1 ? "" : "s"}`;

@@ -48,39 +48,70 @@ pubready --help
 
 ### `pubready` / `pubready check [dir]`
 
+This is a broken release setup for publishing pubready itself (`demo/make-demo-repo.sh` builds it): CI calls a reusable `publish.yml` on Node 22 with an old `NODE_AUTH_TOKEN`:
+
 ```console
 $ npx github:hamarshehmhmd/pubready
-pubready  github.com/acme/widget  (GitHub API; online checks on)
+pubready  github.com/hamarshehmhmd/pubready  (GitHub API; online checks on)
 
 publish steps
-  .github/workflows/publish.yml:20  job npm  npm run release → npm publish --provenance
-    publishes @acme/widget
+  .github/workflows/publish.yml:16  job npm  npm run release → npm publish --provenance
+    publishes pubready
 
-✖ PR010 Publish job can't request an OIDC token (no `id-token: write`)  .github/workflows/publish.yml:5
+✖ PR011 Calling workflow doesn't grant `id-token: write` to the reusable publish workflow  .github/workflows/ci.yml:12
+    job "release" calls publish.yml but nothing grants `id-token: write`; a called workflow
+    can't get more permissions than its caller gives it.
+    fix: add to job "release" in ci.yml:
+           permissions:
+             contents: read
+             id-token: write
+✖ PR010 Publish job can't request an OIDC token (no `id-token: write`)  .github/workflows/publish.yml:4
     job "npm" sets permissions without `id-token: write`, so npm can't get an OIDC token and
     falls back to token auth (E404 / ENEEDAUTH).
     fix: add to job "npm":
            permissions:
              contents: read
              id-token: write
-✖ PR030 Node.js older than 22.14.0  .github/workflows/publish.yml:15
-    publish runs on Node 20 (actions/setup-node node-version: 20); trusted publishing needs Node
-    22.14.0+ and npm 11.5.1+. With an older npm the publish silently uses token auth and fails
-    with E404 "Not found".
-✖ PR104 repository.url casing differs from GitHub's canonical name  package.json:4
-    @acme/widget: repository.url says acme/widget, GitHub's canonical name is Acme/widget ...
+✖ PR031 npm CLI older than 11.5.1 (no OIDC support)  .github/workflows/publish.yml:11
+    Node 22 (bundles npm 10.9.9); npm needs 11.5.1+ for OIDC. Node 22 ships npm 10.9, so it
+    publishes with token auth and fails with E404.
+    fix: use node-version: 24 (or newer), or add `- run: npm install -g npm@latest` before
+         publishing
 ✖ PR110 Package doesn't exist on npm yet (first publish can't use trusted publishing)  package.json:2
-ℹ PR012 Reusable workflow: npm must be configured with the calling workflow's filename
-    publish.yml is a reusable workflow called from release.yml ...
+    pubready isn't on npm yet. The trusted publisher form lives in the package's settings, which
+    only exist after a first publish, so OIDC can't create the package.
+    fix: publish the first version by hand: npm publish (with 2FA), then add the trusted
+         publisher and finish a CI publish within 2 days
+✖ PR104 repository.url casing differs from GitHub's canonical name  package.json:4
+    pubready: repository.url says HamarshehMhmd/pubready, GitHub's canonical name is
+    hamarshehmhmd/pubready. npm compares them case-sensitively and fails with E422 "expected to
+    match https://github.com/hamarshehmhmd/pubready from provenance".
+    fix: "repository": {
+           "type": "git",
+           "url": "git+https://github.com/hamarshehmhmd/pubready.git"
+         }
+▲ PR040 Long-lived npm token still wired into the publish job  .github/workflows/publish.yml:18
+    NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} is set for the publish step. If that secret is
+    expired or revoked, npm reports "Access token expired or revoked" / E404 instead of using
+    OIDC, and once you switch the package to "disallow tokens" it's dead weight.
+    fix: remove the token env from the publish step (keep a read-only token only on `npm ci` if
+         you have private deps), then revoke the token on npmjs.com
+• PR012 Reusable workflow: npm must be configured with the calling workflow's filename  .github/workflows/publish.yml:16
+    publish.yml is a reusable workflow called from ci.yml. The OIDC token names the top-level
+    workflow, so the trusted publisher on npmjs.com must say "ci.yml", not "publish.yml".
+• PR060 Direct `npm publish` must be an allowed action on the trusted publisher  .github/workflows/publish.yml:16
+    This workflow publishes directly (`npm publish`). Trusted publishers created after 3 Sep
+    2026 only allow `npm stage publish` by default: tick "Allow npm publish" on the trusted
+    publisher, or switch to `npm stage publish` and approve releases on npmjs.com.
 
-npmjs.com → @acme/widget → Settings → Trusted publishing → GitHub Actions
-  Organization or user  Acme
-  Repository            widget
-  Workflow filename     release.yml
-  Environment           npm
+npmjs.com → pubready → Settings → Trusted publishing → GitHub Actions
+  Organization or user  hamarshehmhmd
+  Repository            pubready
+  Workflow filename     ci.yml
+  Environment           (leave empty)
   All fields are case-sensitive and npm doesn't validate them when you save.
 
-4 errors, 1 warning, 1 note: trusted publishing will fail as configured.
+5 errors, 1 warning, 2 notes: trusted publishing will fail as configured.
 ```
 
 What it looks at:
@@ -147,6 +178,10 @@ jobs:
         #   args: --strict
         #   fail: "false"
 ```
+
+## Demo
+
+The GIF at the top and the narrated video in the [v0.1.0 release](https://github.com/hamarshehmhmd/pubready/releases/tag/v0.1.0) are real runs: `demo/make-demo-repo.sh` builds the broken release setup shown above, and `demo/render.py` runs the commands, records their output and adds edge-tts narration (`python demo/render.py`, needs ffmpeg, Pillow, edge-tts and gh).
 
 ## How it works
 
