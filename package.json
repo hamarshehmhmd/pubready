@@ -1,0 +1,48 @@
+{
+  "name": "pubready",
+  "version": "0.1.0",
+  "description": "Preflight for npm trusted publishing (OIDC): finds why `npm publish` from GitHub Actions or GitLab CI will fail with E404/E422/ENEEDAUTH before you burn a version, prints the exact npmjs.com trusted-publisher settings, and explains failed publish logs.",
+  "type": "module",
+  "bin": {
+    "pubready": "bin/pubready.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "action.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=18.18"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
+  },
+  "keywords": [
+    "npm",
+    "trusted-publishing",
+    "oidc",
+    "provenance",
+    "github-actions",
+    "gitlab-ci",
+    "publish",
+    "e404",
+    "e422",
+    "supply-chain",
+    "ci"
+  ],
+  "author": "Mohammad Hamarsheh",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hamarshehmhmd/pubready.git"
+  },
+  "homepage": "https://github.com/hamarshehmhmd/pubready#readme",
+  "bugs": {
+    "url": "https://github.com/hamarshehmhmd/pubready/issues"
+  }
+}

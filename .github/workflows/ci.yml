@@ -1,0 +1,73 @@
+name: CI
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    name: tests (node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: [20, 22, 24, 26]
+        include:
+          - os: macos-latest
+            node: 24
+          - os: windows-latest
+            node: 24
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci
+      - run: npm test
+        shell: bash
+
+  example:
+    name: example repo (must find the known problems)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: broken example fails with the expected codes
+        run: |
+          set +e
+          node bin/pubready.js check examples/broken-release --offline --repo Acme/widget --format json > out.json; rc=$?
+          set -e
+          test "$rc" = 1
+          node -e '
+            const r = require("./out.json");
+            const got = r.findings.map(f => f.code).sort().join(" ");
+            console.log(got);
+            for (const c of ["PR010","PR030","PR040","PR101"]) if (!got.includes(c)) { console.error("missing", c); process.exit(1); }
+          '
+      - name: the action itself, warn-only mode
+        uses: ./
+        with:
+          path: examples/broken-release
+          args: --offline --repo Acme/widget
+          fail: "false"
+
+  npx:
+    name: one-line run (npx github:)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npx -y github:hamarshehmhmd/pubready#${{ github.sha }} --version

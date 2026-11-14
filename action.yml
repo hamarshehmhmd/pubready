@@ -1,0 +1,35 @@
+name: pubready
+description: Preflight for npm trusted publishing (OIDC). Fails before `npm publish` would, with the reason and the fix.
+author: Mohammad Hamarsheh
+branding:
+  icon: check-circle
+  color: green
+inputs:
+  path:
+    description: Repository directory to check
+    default: "."
+  args:
+    description: Extra arguments, e.g. "--strict" or "--offline"
+    default: ""
+  fail:
+    description: Fail the step when problems are found ("true"/"false")
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - name: Run pubready
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        PUBREADY_PATH: ${{ inputs.path }}
+        PUBREADY_ARGS: ${{ inputs.args }}
+        PUBREADY_FAIL: ${{ inputs.fail }}
+      run: |
+        cd "$GITHUB_ACTION_PATH" && npm install --omit=dev --no-audit --no-fund --silent && cd - >/dev/null
+        set +e
+        # shellcheck disable=SC2086
+        node "$GITHUB_ACTION_PATH/bin/pubready.js" check "$PUBREADY_PATH" --format github $PUBREADY_ARGS
+        rc=$?
+        set -e
+        if [ "$rc" = 1 ] && [ "$PUBREADY_FAIL" != "true" ]; then rc=0; fi
+        exit $rc
