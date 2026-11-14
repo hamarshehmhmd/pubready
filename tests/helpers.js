@@ -3,6 +3,11 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
+
+// tests must not pick up the CI run's own repo identity
+delete process.env.GITHUB_REPOSITORY;
+delete process.env.CI_PROJECT_PATH;
+delete process.env.PUBREADY_FIXTURE;
 export const BIN = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..", "bin", "pubready.js");
 
 /** Make a throwaway repo from {relpath: content}; objects are JSON-encoded. */
