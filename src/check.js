@@ -169,6 +169,15 @@ export async function check(dir, opts = {}) {
     }
   }
 
+  // two publish steps in one job report the same job-level problem once
+  {
+    const seenF = new Set();
+    for (let i = findings.length - 1; i >= 0; i--) {
+      const f = findings[i];
+      const key = [f.code, f.file, f.job, f.detail].join("|");
+      if (seenF.has(key)) findings.splice(i, 1); else seenF.add(key);
+    }
+  }
   // big monorepos: one finding per code instead of forty
   for (const code of ["PR101", "PR103", "PR104", "PR105", "PR106", "PR111", "PR112"]) {
     const same = findings.filter((f) => f.code === code);

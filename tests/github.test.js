@@ -172,3 +172,11 @@ test("changesets/action v2 publish-script input", async () => {
   assert.equal(r.sites.length, 1);
   assert.equal(r.sites[0].pubs[0].tool, "changeset");
 });
+
+test("setup-node inside a local composite action is followed (input defaults too)", async () => {
+  const action = "name: setup\ninputs:\n  node:\n    default: '20'\nruns:\n  using: composite\n  steps:\n    - uses: actions/setup-node@v6\n      with:\n        node-version: ${{ inputs.node }}\n        registry-url: https://registry.npmjs.org/\n    - shell: bash\n      run: npm ci\n";
+  const wf = GOOD_WORKFLOW.replace(/      - uses: actions\/setup-node@v6\n        with:\n.*\n.*\n/, "      - uses: ./.github/actions/setup\n");
+  const r = await check(makeRepo({ "package.json": GOOD_PKG, ".github/workflows/release.yml": wf, ".github/actions/setup/action.yml": action }), opts);
+  assert.deepEqual(codes(r), ["PR030"]);
+  assert.match(r.findings[0].detail, /in \.\/\.github\/actions\/setup/);
+});

@@ -97,6 +97,29 @@ function matrixValues(job, expr) {
   return vals.length ? vals.map(String) : null;
 }
 
+/** Steps of a local composite action, with ${{ inputs.x }} replaced by the input defaults. */
+function loadLocalAction(root, uses) {
+  const dir = path.resolve(root, uses.replace(/@.*$/, ""));
+  for (const name of ["action.yml", "action.yaml"]) {
+    const f = path.join(dir, name);
+    if (!fs.existsSync(f)) continue;
+    try {
+      const a = loadYaml(fs.readFileSync(f, "utf8")) || {};
+      if (!a.runs || a.runs.using !== "composite" || !Array.isArray(a.runs.steps)) return null;
+      const defaults = {};
+      for (const [k, v] of Object.entries(a.inputs || {})) if (v && v.default !== undefined) defaults[k] = String(v.default);
+      const sub = (v) => (typeof v === "string" ? v.replace(/\$\{\{\s*inputs\.([\w-]+)\s*\}\}/g, (m, k) => (k in defaults ? defaults[k] : m)) : v);
+      return { steps: a.runs.steps.map((st) => {
+        if (!st || typeof st !== "object") return {};
+        const w = {};
+        for (const [k, v] of Object.entries(st.with || {})) w[k] = sub(v);
+        return { ...st, with: w, run: sub(st.run) };
+      }) };
+    } catch { return null; }
+  }
+  return null;
+}
+
 /** Work out Node and npm for the publish step at index `upto` of a job. */
 export function toolchain(root, job, upto) {
   const steps = Array.isArray(job.steps) ? job.steps : [];
@@ -106,27 +129,35 @@ export function toolchain(root, job, upto) {
     const m = String(image).match(/(?:^|\/)node:([\w.-]+)/);
     if (m) { res.nodeSpecs = [m[1].replace(/-(alpine|slim|bookworm|bullseye|trixie|buster).*$/, "")]; res.nodeSource = `container ${image}`; }
   }
+  // expand local composite actions (uses: ./.github/actions/x) in place
+  const flat = [];
   for (let i = 0; i <= upto && i < steps.length; i++) {
     const s = steps[i] || {};
+    const local = typeof s.uses === "string" && s.uses.startsWith("./") ? loadLocalAction(root, s.uses) : null;
+    if (local) for (const cs of local.steps) flat.push({ step: cs, line: lineOfItem(steps, i), via: s.uses });
+    else flat.push({ step: s, line: lineOfItem(steps, i) });
+  }
+  for (const { step: s, line, via } of flat) {
     if (typeof s.uses === "string" && /^actions\/setup-node@/i.test(s.uses)) {
       const w = s.with || {};
-      res.setupNodeLine = lineOfItem(steps, i);
+      res.setupNodeLine = line;
+      res.setupNodeVia = via;
       res.registryUrl = w["registry-url"] || null;
       if (w["node-version"] !== undefined) {
         const spec = String(w["node-version"]);
         res.nodeSpecs = matrixValues(job, spec) || [spec];
-        res.nodeSource = `actions/setup-node node-version: ${spec}`;
+        res.nodeSource = `actions/setup-node node-version: ${spec}${via ? ` in ${via}` : ""}`;
       } else if (w["node-version-file"]) {
         const v = readNodeVersionFile(root, String(w["node-version-file"]));
         res.nodeSpecs = v ? [v] : [];
-        res.nodeSource = `actions/setup-node node-version-file: ${w["node-version-file"]}${v ? ` (${v})` : " (not found)"}`;
+        res.nodeSource = `actions/setup-node node-version-file: ${w["node-version-file"]}${v ? ` (${v})` : " (not found)"}${via ? ` in ${via}` : ""}`;
       } else {
         res.nodeSpecs = [];
         res.nodeSource = "actions/setup-node without node-version (uses the runner's Node)";
       }
     }
     const up = findNpmUpgrade(s.run);
-    if (up) { res.npmUpgrade = up; res.npmUpgradeLine = lineOfItem(steps, i); }
+    if (up) { res.npmUpgrade = up; res.npmUpgradeLine = line; }
   }
   return res;
 }
