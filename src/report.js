@@ -38,7 +38,9 @@ export function renderText(r, opts = {}) {
     if (f.detail) for (const l of wrap(f.detail, 92)) out.push(`    ${l}`);
     if (f.fix) {
       const [first, ...rest] = String(f.fix).split("\n");
-      out.push(`    ${k.green("fix:")} ${first}`);
+      const firstLines = wrap(first, 87);
+      out.push(`    ${k.green("fix:")} ${firstLines[0]}`);
+      for (const l of firstLines.slice(1)) out.push(`         ${l}`);
       for (const l of rest) out.push(`         ${k.green(l)}`);
     }
   }
