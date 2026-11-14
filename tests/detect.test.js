@@ -83,3 +83,11 @@ test("script names that start with publish are scripts, not publishes", () => {
   assert.equal(findPublishes("yarn publish-version 1.2.3", { "publish-version": "npm publish --workspaces" })[0].tool, "npm");
   assert.deepEqual(findPublishes("npm publish:all"), []);
 });
+
+test("messages that mention npm publish are not publishes", () => {
+  assert.deepEqual(findPublishes('echo "npm publish failed for $name"'), []);
+  assert.deepEqual(findPublishes('jq -n --arg title "npm publish failed: x"'), []);
+  assert.deepEqual(findPublishes("gh issue create --title 'npm publish failed'"), []);
+  assert.equal(findPublishes('( cd "$p" && npm publish --provenance --access public ) > /tmp/out.txt 2>&1')[0].tool, "npm");
+  assert.equal(findPublishes('npm publish "./${TARBALL}" --ignore-scripts')[0].tool, "npm");
+});

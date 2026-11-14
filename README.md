@@ -193,7 +193,7 @@ What it can't see: the trusted-publisher settings on npmjs.com itself (there's n
 
 ```sh
 npm ci
-npm test        # 66 tests, node:test
+npm test        # 68 tests, node:test
 node bin/pubready.js check examples/broken-release --offline --repo Acme/widget
 ```
 

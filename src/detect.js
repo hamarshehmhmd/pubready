@@ -40,9 +40,11 @@ export function findPublishes(text, scripts = {}, via = [], depth = 0) {
   for (const raw of String(text).split(/\r?\n|&&|\|\||;/)) {
     const line = stripComment(raw);
     if (!line || /--dry-run\b/.test(line)) continue;
+    if (/^(?:\(?\s*)?(?:echo|printf|jq|cat|::\w+)\b/.test(line)) continue;
+    const bare = line.replace(/"(?:[^"\\]|\\.)*"|'[^']*'|`[^`]*`/g, '""');
     let matched = false;
     for (const t of TOOLS) {
-      if (t.re.test(line)) {
+      if (t.re.test(bare)) {
         out.push({ tool: t.tool, command: line, via, ...flagsOf(line) });
         matched = true;
         break;
